@@ -104,13 +104,12 @@ class _ARKitViewScreenState extends State<ARKitViewScreen> {
 
     Position position = await Geolocator.getCurrentPosition(
       desiredAccuracy: LocationAccuracy.best,
-      timeLimit: Duration(seconds: 3),
+      timeLimit: Duration(seconds: 1),
     );
 
     setState(() {
       userLocation = position;
       _initialLocation ??= position;
-      // Kalman 필터 초기화 (초기 측정값으로)
       kalmanLat = KalmanFilter(position.latitude);
       kalmanLon = KalmanFilter(position.longitude);
       kalmanAlt = KalmanFilter(position.altitude);
@@ -122,8 +121,8 @@ class _ARKitViewScreenState extends State<ARKitViewScreen> {
   void _startLocationUpdates() {
     positionStream = Geolocator.getPositionStream(
       locationSettings: LocationSettings(
-        accuracy: LocationAccuracy.high, // 높은 정확도로 설정
-        distanceFilter: 0, // 0으로 설정하면 모든 미세한 이동도 감지
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 1, // 1m 이상 이동 시 업데이트
       ),
     ).listen((Position newPosition) {
       // 새로운 위치 데이터를 Kalman 필터로 보정
@@ -173,6 +172,7 @@ class _ARKitViewScreenState extends State<ARKitViewScreen> {
       appBar: AppBar(title: const Text('ARKit 위치 기반 3D 모델')),
       body: ARKitSceneView(
         onARKitViewCreated: _onARKitViewCreated,
+        enableTapRecognizer: true, // 터치 이벤트 활성화
       ),
     );
   }
@@ -180,41 +180,70 @@ class _ARKitViewScreenState extends State<ARKitViewScreen> {
   void _onARKitViewCreated(ARKitController controller) {
     arkitController = controller;
     print("🎥 ARView 생성됨, AR 세션 초기화 시작");
-    // 추가 ARKit 설정이 필요한 경우 이곳에서 처리합니다.
+
+    arkitController.onNodeTap = (List<String> nodeNames) {
+      print("🖱️ 터치된 노드 이름: $nodeNames");
+      if (nodeNames.contains("gift")) {
+        print("🎯 'gift' 노드 터치 감지!");
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => TargetPage()),
+        );
+      } else {
+        print("⚠️ 'gift' 노드가 터치되지 않음.");
+      }
+    };
   }
 
   void _addARModel(Position currentPosition, Position targetPosition) {
     if (_initialLocation == null) return;
 
-    double deltaLat = targetPosition.latitude - currentPosition.latitude;
-    double deltaLon = targetPosition.longitude - currentPosition.longitude;
+    double deltaLat = targetPosition.latitude - _initialLocation!.latitude;
+    double deltaLon = targetPosition.longitude - _initialLocation!.longitude;
 
     double metersPerDegreeLat = 111320;
-    double metersPerDegreeLon = 111320 * cos(currentPosition.latitude * pi / 180);
+    double metersPerDegreeLon = 111320 * cos(_initialLocation!.latitude * pi / 180);
     double offsetX = deltaLon * metersPerDegreeLon;
     double offsetZ = -deltaLat * metersPerDegreeLat;
 
-    double baseSize = 1.5;
-    double sizeFactor = (15 - _calculateDistance(
+    // 🎯 현재 위치와 타겟 위치 사이 거리 계산
+    double distance = _calculateDistance(
       currentPosition.latitude,
       currentPosition.longitude,
       targetPosition.latitude,
       targetPosition.longitude,
-    )) / 15;
-    double adjustedSize = baseSize * sizeFactor;
-    adjustedSize = adjustedSize.clamp(0.7, 2.5);
+    );
 
-    final newModel = ARKitNode(
+    // 🎯 거리 기반 크기 조정 로직 (최소 0.5 ~ 최대 2.0 크기로 조정)
+    double baseSize = 1.0; // 기본 크기
+    double sizeFactor = (10 - distance) / 10; // 거리에 따라 크기 조정
+    double adjustedSize = baseSize * sizeFactor;
+    adjustedSize = adjustedSize.clamp(0.5, 2.0); // 크기 범위 제한
+
+    /*final newModel = ARKitNode(
       geometry: ARKitPlane(
-        width: adjustedSize,
-        height: adjustedSize,
+        width: adjustedSize, // 크기 적용
+        height: adjustedSize, // 크기 적용
         materials: [
           ARKitMaterial(
             diffuse: ARKitMaterialProperty.image('assets/gift.png'),
           ),
         ],
       ),
-      position: vm.Vector3(offsetX, 0, offsetZ),
+      position: vm.Vector3(offsetX, 0, offsetZ), // 위치 설정
+    );*/
+    final newModel = ARKitNode(
+      name: "gift",
+      geometry: ARKitPlane(
+        width: 1.0, // 크기 적용
+        height: 1.0, // 크기 적용
+        materials: [
+          ARKitMaterial(
+            diffuse: ARKitMaterialProperty.image('assets/gift.png'),
+          ),
+        ],
+      ),
+      position: vm.Vector3(0, 0, -1.0), // 위치 설정
     );
 
     if (arModelNode != null) {
@@ -243,5 +272,19 @@ class _ARKitViewScreenState extends State<ARKitViewScreen> {
     positionStream?.cancel();
     arkitController.dispose();
     super.dispose();
+  }
+}
+
+class TargetPage extends StatelessWidget {
+  const TargetPage({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text("타겟 페이지")),
+      body: const Center(
+        child: Text("여기는 타겟 페이지입니다."),
+      ),
+    );
   }
 }
