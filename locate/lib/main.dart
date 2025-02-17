@@ -8,7 +8,7 @@ import 'package:vector_math/vector_math_64.dart' as vm;
 // Kalman 필터 클래스
 class KalmanFilter {
   double _q = 0.0001; // 프로세스 노이즈 공분산
-  double _r = 0.02;   // 측정 노이즈 공분산
+  double _r = 0.05;   // 측정 노이즈 공분산
   double _x;          // 추정값
   double _p = 1.0;    // 오차 공분산
   double _k = 0.0;    // 칼만 이득
@@ -62,9 +62,9 @@ class _ARKitViewScreenState extends State<ARKitViewScreen> {
 
   // 타겟 위치 (예시: 체육관 좌표)
   final Position testPosition = Position(
-    latitude: roundToSixDecimals(37.293252548454724),
-    longitude: roundToSixDecimals(126.87660308047214),
-    altitude: roundToSixDecimals(25.454755380539268),
+    latitude: roundToSixDecimals(37.339308464986075),
+    longitude: roundToSixDecimals(126.73480117161131),
+    altitude: roundToSixDecimals(9.787257108651247),
     accuracy: 0,
     heading: 0,
     speed: 0,
@@ -152,9 +152,9 @@ class _ARKitViewScreenState extends State<ARKitViewScreen> {
         testPosition.longitude,
       );
 
-      print("📍 보정된 위치 - 현재 거리: $distanceToTarget m");
+      //print("📍 보정된 위치 - 현재 거리: $distanceToTarget m");
 
-      if (distanceToTarget > 10.0) {
+      if (distanceToTarget > 10000.0) { /// 수정
         if (arModelNode != null) {
           print("🗑 AR 모델 제거: 거리 초과");
           arkitController.remove(arModelNode!.name!);
@@ -198,8 +198,10 @@ class _ARKitViewScreenState extends State<ARKitViewScreen> {
   void _addARModel(Position currentPosition, Position targetPosition) {
     if (_initialLocation == null) return;
 
+    // 초기 위치를 기준으로 상대 오프셋 계산 (미터 단위)
     double deltaLat = targetPosition.latitude - _initialLocation!.latitude;
     double deltaLon = targetPosition.longitude - _initialLocation!.longitude;
+    double deltaAlt = targetPosition.altitude - _initialLocation!.altitude; // 고도 차이
 
     double metersPerDegreeLat = 111320;
     double metersPerDegreeLon = 111320 * cos(_initialLocation!.latitude * pi / 180);
@@ -220,30 +222,20 @@ class _ARKitViewScreenState extends State<ARKitViewScreen> {
     double adjustedSize = baseSize * sizeFactor;
     adjustedSize = adjustedSize.clamp(0.5, 2.0); // 크기 범위 제한
 
-    /*final newModel = ARKitNode(
-      geometry: ARKitPlane(
-        width: adjustedSize, // 크기 적용
-        height: adjustedSize, // 크기 적용
-        materials: [
-          ARKitMaterial(
-            diffuse: ARKitMaterialProperty.image('assets/gift.png'),
-          ),
-        ],
-      ),
-      position: vm.Vector3(offsetX, 0, offsetZ), // 위치 설정
-    );*/
     final newModel = ARKitNode(
       name: "gift",
       geometry: ARKitPlane(
-        width: 1.0, // 크기 적용
-        height: 1.0, // 크기 적용
+        width: adjustedSize, // 계산된 크기 적용
+        height: adjustedSize,
         materials: [
           ARKitMaterial(
             diffuse: ARKitMaterialProperty.image('assets/gift.png'),
           ),
         ],
       ),
-      position: vm.Vector3(0, 0, -1.0), // 위치 설정
+      // x: offsetX, y: 고도 차이(deltaAlt), z: offsetZ
+      //position: vm.Vector3(offsetX, deltaAlt, offsetZ),
+      position: vm.Vector3(0, 0, -1.0),
     );
 
     if (arModelNode != null) {
@@ -253,7 +245,7 @@ class _ARKitViewScreenState extends State<ARKitViewScreen> {
     arModelNode = newModel;
     arkitController.add(newModel);
 
-    print("🎁 AR 모델 추가됨! 크기: $adjustedSize | 위치: (x: $offsetX, z: $offsetZ)");
+    print("🎁 AR 모델 추가됨! 크기: $adjustedSize | 위치: (x: $offsetX, y: $deltaAlt, z: $offsetZ)");
   }
 
   double _calculateDistance(double lat1, double lon1, double lat2, double lon2) {
