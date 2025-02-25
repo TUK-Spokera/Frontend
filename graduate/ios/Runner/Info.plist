@@ -26,6 +26,8 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>GMSApiKey</key>
+    <string>여기에_구글_맵_API_KEY_입력</string>
 	<!-- 추가된 권한 -->
 	<key>NSCameraUsageDescription</key>
 	<string>AR 기능을 위해 카메라가 필요합니다.</string>

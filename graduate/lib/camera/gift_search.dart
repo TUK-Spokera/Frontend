@@ -1,17 +1,19 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:arkit_plugin/arkit_plugin.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
 import 'package:vector_math/vector_math_64.dart' as vm;
 
 // Kalman 필터 클래스
 class KalmanFilter {
   double _q = 0.0001; // 프로세스 노이즈 공분산
   double _r = 0.05;   // 측정 노이즈 공분산
-  double _x;
-  double _p = 1.0;
-  double _k = 0.0;
+  double _x;          // 추정값
+  double _p = 1.0;    // 오차 공분산
+  double _k = 0.0;    // 칼만 이득
 
   KalmanFilter(this._x);
 
@@ -28,6 +30,44 @@ double roundToSixDecimals(double value) {
   return double.parse(value.toStringAsFixed(6));
 }
 
+Future<Position> fetchTargetPosition() async {
+  // 실제 API 엔드포인트로 변경하세요.
+  final url = Uri.parse("http://appledolphin.xyz:8080/api/facility?faciNm=곰솔누리숲배드민턴장");
+  final response = await http.get(url);
+  if (response.statusCode == 200) {
+    final jsonData = jsonDecode(response.body);
+    return Position(
+      latitude: jsonData['latitude'] as double,
+      longitude: jsonData['longitude'] as double,
+      altitude: (jsonData['altitude'] as int).toDouble(),
+      accuracy: 0,
+      heading: 0,
+      speed: 0,
+      speedAccuracy: 0,
+      altitudeAccuracy: 0,
+      headingAccuracy: 0,
+      timestamp: DateTime.now(),
+    );
+  } else {
+    throw Exception("Failed to load target position");
+  }
+}
+
+void main() {
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'ARKit 위치 기반 3D 모델',
+      home: const GiftSearchScreen(),
+    );
+  }
+}
+
 class GiftSearchScreen extends StatefulWidget {
   const GiftSearchScreen({Key? key}) : super(key: key);
 
@@ -42,36 +82,34 @@ class _GiftSearchScreenState extends State<GiftSearchScreen> {
   ARKitNode? arModelNode;
   StreamSubscription<Position>? positionStream;
 
-  // 칼만 필터 변수 미리 기본값 할당
+  // 칼만 필터 객체 (위도, 경도, 고도)
   late KalmanFilter kalmanLat;
   late KalmanFilter kalmanLon;
   late KalmanFilter kalmanAlt;
 
-  final Position testPosition = Position(
-    latitude: roundToSixDecimals(37.293255990923306),
-    longitude: roundToSixDecimals(126.87660560662758),
-    altitude: roundToSixDecimals(24.43160317198413),
-    accuracy: 0,
-    heading: 0,
-    speed: 0,
-    speedAccuracy: 0,
-    altitudeAccuracy: 0,
-    headingAccuracy: 0,
-    timestamp: DateTime.now(),
-  );
+  // 타겟 위치를 서버에서 받아올 것이므로 nullable로 선언
+  Position? testPosition;
 
   @override
   void initState() {
     super.initState();
-    // 기본값 할당: 초기 위치가 아직 없으므로 0.0을 사용
+    // 초기 칼만 필터 기본값은 0.0으로 설정
     kalmanLat = KalmanFilter(0.0);
     kalmanLon = KalmanFilter(0.0);
     kalmanAlt = KalmanFilter(0.0);
-    // 위치 데이터를 받아온 후에 위치 업데이트 시작
     _getUserLocation().then((_) {
       if (userLocation != null) {
         _startLocationUpdates();
       }
+    });
+    // 서버에서 타겟 위치 가져오기
+    fetchTargetPosition().then((position) {
+      setState(() {
+        testPosition = position;
+      });
+      print("📍 서버로부터 받은 타겟 위치 - 위도: ${position.latitude}, 경도: ${position.longitude}");
+    }).catchError((error) {
+      print("🚨 타겟 위치를 받아오는데 실패: $error");
     });
   }
 
@@ -96,21 +134,24 @@ class _GiftSearchScreenState extends State<GiftSearchScreen> {
       return;
     }
 
-    Position position = await Geolocator.getCurrentPosition(
-      desiredAccuracy: LocationAccuracy.best,
-      timeLimit: const Duration(seconds: 1),
-    );
+    try {
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.best,
+        timeLimit: const Duration(seconds: 1),
+      );
 
-    setState(() {
-      userLocation = position;
-      _initialLocation ??= position;
-      // 위치를 받아온 후에 칼만 필터를 재설정
-      kalmanLat = KalmanFilter(position.latitude);
-      kalmanLon = KalmanFilter(position.longitude);
-      kalmanAlt = KalmanFilter(position.altitude);
-    });
+      setState(() {
+        userLocation = position;
+        _initialLocation ??= position;
+        kalmanLat = KalmanFilter(position.latitude);
+        kalmanLon = KalmanFilter(position.longitude);
+        kalmanAlt = KalmanFilter(position.altitude);
+      });
 
-    print("📍 초기 위치 - 위도: ${position.latitude}, 경도: ${position.longitude}, 고도: ${position.altitude}");
+      print("📍 초기 위치 - 위도: ${position.latitude}, 경도: ${position.longitude}, 고도: ${position.altitude}");
+    } catch (e) {
+      print("🚨 위치 정보를 가져오는 중 에러 발생: $e");
+    }
   }
 
   void _startLocationUpdates() {
@@ -120,7 +161,6 @@ class _GiftSearchScreenState extends State<GiftSearchScreen> {
         distanceFilter: 1,
       ),
     ).listen((Position newPosition) {
-      // 새 위치 데이터를 칼만 필터로 보정
       double filteredLat = kalmanLat.filter(newPosition.latitude);
       double filteredLon = kalmanLon.filter(newPosition.longitude);
       double filteredAlt = kalmanAlt.filter(newPosition.altitude);
@@ -140,12 +180,17 @@ class _GiftSearchScreenState extends State<GiftSearchScreen> {
         );
       });
 
+      // testPosition이 서버에서 받아와져야만 아래 로직 실행
+      if (testPosition == null) return;
+
       double distanceToTarget = _calculateDistance(
         userLocation!.latitude,
         userLocation!.longitude,
-        testPosition.latitude,
-        testPosition.longitude,
+        testPosition!.latitude,
+        testPosition!.longitude,
       );
+
+      print("📍 보정된 위치 - 현재 거리: $distanceToTarget m");
 
       if (distanceToTarget > 1000.0) {
         if (arModelNode != null) {
@@ -154,31 +199,18 @@ class _GiftSearchScreenState extends State<GiftSearchScreen> {
           arModelNode = null;
         }
       } else {
-        _addARModel(userLocation!, testPosition);
+        _addARModel(userLocation!, testPosition!);
       }
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    // 하단바 없이 풀스크린 카메라와 뒤로가기 버튼만
     return Scaffold(
-      body: Stack(
-        children: [
-          ARKitSceneView(
-            onARKitViewCreated: _onARKitViewCreated,
-            enableTapRecognizer: true,
-          ),
-          // 뒤로가기 버튼 (왼쪽 상단)
-          Positioned(
-            top: MediaQuery.of(context).padding.top + 8,
-            left: 8,
-            child: IconButton(
-              icon: const Icon(Icons.arrow_back, color: Colors.white, size: 30),
-              onPressed: () => Navigator.pop(context),
-            ),
-          ),
-        ],
+      appBar: AppBar(title: const Text('ARKit 위치 기반 3D 모델')),
+      body: ARKitSceneView(
+        onARKitViewCreated: _onARKitViewCreated,
+        enableTapRecognizer: true,
       ),
     );
   }
@@ -206,7 +238,8 @@ class _GiftSearchScreenState extends State<GiftSearchScreen> {
 
     double deltaLat = targetPosition.latitude - _initialLocation!.latitude;
     double deltaLon = targetPosition.longitude - _initialLocation!.longitude;
-    double deltaAlt = targetPosition.altitude - _initialLocation!.altitude;
+    /// 고도를 int형으로 변경
+    int deltaAlt = targetPosition.altitude.toInt() - _initialLocation!.altitude.toInt();
 
     double metersPerDegreeLat = 111320;
     double metersPerDegreeLon = 111320 * cos(_initialLocation!.latitude * pi / 180);
@@ -236,7 +269,8 @@ class _GiftSearchScreenState extends State<GiftSearchScreen> {
           ),
         ],
       ),
-      position: vm.Vector3(0, 0, -1.0),
+      /// Vector3는 double형을 필요로 하기에 Int로 바꾼 고도를 다시 Double로 변경
+      position: vm.Vector3(offsetX, deltaAlt.toDouble(), offsetZ),
     );
 
     if (arModelNode != null) {

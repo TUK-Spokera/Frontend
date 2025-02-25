@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+
+// 추가된 패키지
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:geolocator/geolocator.dart';
+
+// 기존에 사용하던 스크린들
 import 'package:graduate/screen/matching_start.dart';
 import 'package:graduate/screen/chat_list.dart';
 import 'package:graduate/screen/mypage.dart';
-import 'package:graduate/camera/team_search.dart';   // 팀원찾기 (테스트용)
-import 'package:graduate/camera/gift_search.dart';  // 보상찾기 (ARKit)
+import 'package:graduate/camera/team_search.dart'; // 팀원찾기
+import 'package:graduate/camera/gift_search.dart';  // 보상찾기
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -26,8 +32,7 @@ class MyApp extends StatelessWidget {
         '/': (context) => HomeScreen(),
         '/chat_list': (context) => ChatList(),
         '/mypage': (context) => MyPage(),
-        '/team_search': (context) => TeamSearchScreen(),
-        // 보상찾기는 Navigator.push로 이동할 예정이므로 굳이 라우트로 등록 안 해도 됨
+        '/team_search': (context) => TeamSearchScreen(), // const 제거
       },
     );
   }
@@ -40,22 +45,16 @@ class HomeScreen extends StatefulWidget {
 
 // 하단바 순서: [채팅방, 마이페이지, 홈, 팀원찾기, 보상찾기]
 class _HomeScreenState extends State<HomeScreen> {
-  // 기본 탭: 홈(인덱스 2)
   int _currentIndex = 2;
-
-  // 보상찾기(인덱스 4)는 push로 따로 처리할 것이므로, _screens에는 4개만 넣음
   final List<Widget> _screens = [
-    ChatList(),          // 인덱스 0: 채팅방
-    MyPage(),            // 인덱스 1: 마이페이지
-    HomeScreenContent(), // 인덱스 2: 홈
-    TeamSearchScreen(),  // 인덱스 3: 팀원찾기
-    // 인덱스 4는 Navigator.push로 처리 (GiftSearchScreen)
+    ChatList(),
+    MyPage(),
+    HomeScreenContent(), // 구글 맵 표시될 메인 화면
   ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // 상단바
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
@@ -65,20 +64,23 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         centerTitle: true,
       ),
-      // 인덱스가 4일 경우 _screens에 화면이 없으므로, 4 미만일 때만 body에 표시
       body: (_currentIndex < _screens.length) ? _screens[_currentIndex] : Container(),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) {
-          // 보상찾기(인덱스 4) 탭을 누르면 새 페이지로 push
-          if (index == 4) {
+          if (index == 3) {
+            // 팀원찾기 탭
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => const GiftSearchScreen()),
+              MaterialPageRoute(builder: (context) => TeamSearchScreen()),
             );
-            // 인덱스는 바꾸지 않아야, 돌아왔을 때 기존 탭이 유지됨
+          } else if (index == 4) {
+            // 보상찾기 탭
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => GiftSearchScreen()),
+            );
           } else {
-            // 나머지 탭은 그냥 setState로 교체
             setState(() {
               _currentIndex = index;
             });
@@ -103,7 +105,7 @@ class _HomeScreenState extends State<HomeScreen> {
             label: '팀원찾기',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.card_giftcard),
+            icon: Icon(Icons.camera_alt_outlined),
             label: '보상찾기',
           ),
         ],
@@ -112,86 +114,146 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-class HomeScreenContent extends StatelessWidget {
+///
+/// 지도 + 검색바 + 매칭 시작 버튼 배치
+///
+class HomeScreenContent extends StatefulWidget {
+  @override
+  _HomeScreenContentState createState() => _HomeScreenContentState();
+}
+
+class _HomeScreenContentState extends State<HomeScreenContent> {
+  GoogleMapController? _mapController;
+  LatLng? _currentLatLng;
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _initLocation();
+  }
+
+  /// 위치 권한 체크 & 현재 위치 얻기
+  Future<void> _initLocation() async {
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      print("위치 서비스가 꺼져있습니다.");
+      return;
+    }
+
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        print("위치 권한이 거부되었습니다.");
+        return;
+      }
+    }
+    if (permission == LocationPermission.deniedForever) {
+      print("위치 권한이 영구적으로 거부되었습니다.");
+      return;
+    }
+
+    // 현재 위치 가져오기
+    Position position = await Geolocator.getCurrentPosition(
+      desiredAccuracy: LocationAccuracy.best,
+    );
+    setState(() {
+      _currentLatLng = LatLng(position.latitude, position.longitude);
+    });
+  }
+
+  /// 구글 맵이 생성된 직후 콜백
+  void _onMapCreated(GoogleMapController controller) {
+    _mapController = controller;
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        children: [
-          Card(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            elevation: 4,
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                children: [
-                  CircleAvatar(
-                    radius: 50,
-                    backgroundImage: NetworkImage(
-                      'https://via.placeholder.com/150', // 아바타 이미지
+    // 화면 크기 가져오기 (지도의 너비/높이 조절용)
+    final size = MediaQuery.of(context).size;
+
+    return Column(
+      children: [
+        // 검색바
+        Container(
+          color: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: 'search',
+                    prefixIcon: Icon(Icons.search),
+                    filled: true,
+                    fillColor: Colors.grey[200],
+                    contentPadding: EdgeInsets.symmetric(vertical: 0),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(30),
+                      borderSide: BorderSide.none,
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'kera',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text('3승 1패'),
-                  const Text('승률 75%'),
-                  const SizedBox(height: 16),
-                  const Divider(),
-                  for (int i = 1; i <= 5; i++)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8.0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            '스포츠 $i',
-                            style: const TextStyle(fontSize: 16),
-                          ),
-                          const Text(
-                            '전적: 0승 0패',
-                            style: TextStyle(fontSize: 16),
-                          ),
-                        ],
-                      ),
-                    ),
-                ],
+                ),
               ),
+            ],
+          ),
+        ),
+
+        // 지도 (검색바와 매칭 시작 버튼 사이에 배치, 높이를 늘림)
+        Container(
+          margin: const EdgeInsets.symmetric(vertical: 16),
+          width: size.width * 0.9,  // 매칭 버튼보다 조금 더 넓게
+          height: 460,             // 이전보다 지도 영역을 늘림
+          decoration: BoxDecoration(
+            color: Colors.grey[300],
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: _currentLatLng == null
+                ? Center(child: CircularProgressIndicator())
+                : GoogleMap(
+              onMapCreated: _onMapCreated,
+              initialCameraPosition: CameraPosition(
+                target: _currentLatLng!,
+                zoom: 15,
+              ),
+              markers: {
+                Marker(
+                  markerId: MarkerId('currentLocation'),
+                  position: _currentLatLng!,
+                  infoWindow: InfoWindow(title: '현재 내 위치'),
+                ),
+              },
             ),
           ),
-          const Spacer(),
-          ElevatedButton(
+        ),
+
+        // 매칭 시작 버튼 (하단바와 조금 떨어뜨림)
+        Container(
+          width: size.width * 0.8, // 지도보다 살짝 좁게
+          height: 50,
+          margin: const EdgeInsets.only(bottom: 32), // 하단바와의 간격 추가
+          child: ElevatedButton(
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (context) => Matchingstart(),
-                ),
+                MaterialPageRoute(builder: (context) => Matchingstart()),
               );
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.blue,
-              minimumSize: const Size(double.infinity, 50),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             child: const Text(
               '매칭시작',
               style: TextStyle(fontSize: 16, color: Colors.white),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

@@ -31,7 +31,7 @@ dependencies:
   flutter:
     sdk: flutter
   web_socket_channel: ^2.2.0
-  http: ^0.13.6
+  http: ^1.0.0
   charset_converter: ^2.0.2
 
   # The following adds the Cupertino Icons font to your application.
@@ -42,6 +42,10 @@ dependencies:
   arkit_plugin: ^1.1.2  # ARKit 플러그인 (iOS 전용)
   geolocator: ^9.0.2  # 위치 정보 가져오기
   vector_math: ^2.1.4  # 3D 벡터 연산을 위한 라이브러리
+  camera: ^0.11.1
+  google_mlkit_face_detection: ^0.12.0
+  permission_handler: ^11.0.1
+  image: ^4.0.19
 
 dev_dependencies:
   flutter_test:
