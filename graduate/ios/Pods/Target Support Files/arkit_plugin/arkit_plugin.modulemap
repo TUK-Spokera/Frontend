@@ -1,0 +1,6 @@
+framework module arkit_plugin {
+  umbrella header "arkit_plugin-umbrella.h"
+
+  export *
+  module * { export * }
+}
