@@ -8,9 +8,9 @@ import 'package:graduate/screen/chat_list.dart';
 import 'package:graduate/screen/mypage.dart';
 import 'package:graduate/camera/team_search.dart';
 import 'package:graduate/camera/gift_search.dart';
+import 'package:graduate/screen/victory_and_defeat.dart';
 import 'package:graduate/utils/global.dart';
 import 'package:graduate/screen/rank_screen.dart';
-import 'package:graduate/screen/victory_and_defeat.dart';
 
 
 class MainScreen extends StatefulWidget {
@@ -19,12 +19,12 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
-  int _currentIndex = 2;
+  int _currentIndex = 1;
 
   final List<Widget> _screens = [
-    ChatListScreen(username: getGlobalUsername()),
     MyPageScreen(),
     HomeScreenContent(),
+    ChatListScreen(username: getGlobalUsername()),
   ];
 
   @override
@@ -39,34 +39,16 @@ class _MainScreenState extends State<MainScreen> {
         ),
         centerTitle: true,
       ),
-      body: (_currentIndex < _screens.length)
-          ? _screens[_currentIndex]
-          : Container(),
+      body: _screens[_currentIndex],
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) {
-          if (index == 3) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => TeamSearchScreen()),
-            );
-          } else if (index == 4) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => GiftSearchScreen()),
-            );
-          } else {
             setState(() {
               _currentIndex = index;
             });
-          }
         },
         type: BottomNavigationBarType.fixed,
         items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.chat),
-            label: '채팅방',
-          ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person),
             label: '마이페이지',
@@ -76,12 +58,8 @@ class _MainScreenState extends State<MainScreen> {
             label: '홈',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.camera_alt),
-            label: '팀원찾기',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.map_outlined),
-            label: '팀원찾기',
+            icon: Icon(Icons.chat),
+            label: '채팅방',
           ),
         ],
       ),
@@ -201,37 +179,6 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
                       ),
                     ),
                     child: Text('순위'),
-                  ),
-                ),
-                Container(
-                  width: size.width * 0.4,
-                  height: 45,
-                  margin: EdgeInsets.only(left: 8),
-                  child: ElevatedButton(
-                    onPressed: () async {
-                      /*final matches = await fetchTodayMatches(); // 예시
-                      final match = matches.first; // 또는 선택된 경기*/
-
-                      showGeneralDialog(
-                        context: context,
-                        barrierDismissible: true,
-                        barrierLabel: "승패입력",
-                        barrierColor: Colors.black54,
-                        transitionDuration: Duration(milliseconds: 300),
-                        pageBuilder: (context, anim1, anim2) {
-                          return ResultInputDialog(match: Match(
-                            id: 123,
-                          ));
-                        },
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    child: Text('승패 입력'),
                   ),
                 ),
               ],

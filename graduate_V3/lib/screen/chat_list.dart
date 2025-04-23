@@ -3,7 +3,9 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'chat.dart';
 import 'package:graduate/utils/global.dart';
-
+import 'package:graduate/camera/team_search.dart';
+import 'package:graduate/camera/gift_search.dart';
+import 'package:graduate/screen/victory_and_defeat.dart';
 
 class ChatListScreen extends StatefulWidget {
   final String username;
@@ -116,7 +118,53 @@ class _ChatListScreenState extends State<ChatListScreen> {
                 "🕒 $startTime ~ $endTime",
                 style: TextStyle(color: Colors.grey[600]),
               ),
-              trailing: Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+              trailing: PopupMenuButton<String>(
+                onSelected: (value) {
+                  // 선택된 메뉴 옵션에 따른 작업 처리
+                  print("선택된 옵션: $value");
+                  if (value == '옵션 1') {
+                    showDialog(
+                      context: context,
+                      barrierDismissible: true,
+                      builder: (context) => ResultInputDialog(match: Match(id: 123)),
+                    );
+                  } else if (value == '옵션 2') {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => TeamSearchScreen()),
+                    );
+                  } else if (value == '옵션 3') {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => GiftSearchScreen()),
+                    );
+                  }
+                },
+                itemBuilder: (BuildContext context) {
+                  return [
+                    PopupMenuItem<String>(
+                      value: '옵션 1',
+                      child: Text('승패 입력'),
+                    ),
+                    PopupMenuItem<String>(
+                      value: '옵션 2',
+                      child: Text('팀원 찾기(카메라)'),
+                    ),
+                    PopupMenuItem<String>(
+                      value: '옵션 3',
+                      child: Text('팀원 찾기(지도)'),
+                    ),
+                  ];
+                },
+                // 아이콘 대신 "..." 텍스트 스타일 아이콘으로 변경
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Text(
+                    '...',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
               onTap: () {
                 print("📩 [채팅방 이동] matchId = $matchId");
                 Navigator.push(
