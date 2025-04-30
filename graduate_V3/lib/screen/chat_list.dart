@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'chat.dart';
 import 'package:graduate/utils/global.dart';
 import 'package:graduate/camera/team_search.dart';
-import 'package:graduate/camera/gift_search.dart';
+import 'package:graduate/camera/team_search_map.dart';
 import 'package:graduate/screen/victory_and_defeat.dart';
 
 class ChatListScreen extends StatefulWidget {
@@ -121,12 +121,14 @@ class _ChatListScreenState extends State<ChatListScreen> {
               trailing: PopupMenuButton<String>(
                 onSelected: (value) {
                   // 선택된 메뉴 옵션에 따른 작업 처리
-                  print("선택된 옵션: $value");
                   if (value == '옵션 1') {
+                    print("매치 아이디: $matchId");
                     showDialog(
                       context: context,
                       barrierDismissible: true,
-                      builder: (context) => ResultInputDialog(match: Match(id: 123)),
+                      builder: (context) => ResultInputDialog(
+                          match: Match(id: matchId)
+                      ),
                     );
                   } else if (value == '옵션 2') {
                     Navigator.push(
@@ -136,7 +138,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
                   } else if (value == '옵션 3') {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => GiftSearchScreen()),
+                      MaterialPageRoute(builder: (context) => TeamMapScreen()),
                     );
                   }
                 },

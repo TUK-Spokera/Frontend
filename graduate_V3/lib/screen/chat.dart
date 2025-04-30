@@ -37,7 +37,6 @@ class _ChatScreenState extends State<ChatScreen> {
   void initState() {
     super.initState();
     _loadChatHistory();
-    //_connectToStomp();
     _initializeStomp();
   }
   void _initializeStomp() async {

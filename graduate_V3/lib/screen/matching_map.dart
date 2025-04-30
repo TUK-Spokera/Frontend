@@ -12,9 +12,9 @@ import 'package:url_launcher/url_launcher.dart';
 import '../utils/global.dart';
 
 class MatchingMap extends StatefulWidget {
-  
+
   final int matchId;
-  
+
   MatchingMap({required this.matchId});
   @override
   _MatchingMapState createState() => _MatchingMapState();
@@ -87,33 +87,33 @@ class _MatchingMapState extends State<MatchingMap> {
   }
 
   Future<void> _fetchRecommendedFacilities() async {
-   final url = Uri.parse('http://appledolphin.xyz:8080/api/facility/recommend/${widget.matchId}');
+    final url = Uri.parse('http://appledolphin.xyz:8080/api/facility/recommend/${widget.matchId}');
 
-   try{
-     final accessToken = await getAccessToken();
-     final response = await http.get(
-       url,
-       headers: {
-         "Authorization": "Bearer $accessToken",
-         "Content-Type": "application/json",
-       },
-     );
-     if(response.statusCode == 200){
-       final decodedBody = utf8.decode(response.bodyBytes);
-       print('서버 응답 데이터 (디코딩 완료): $decodedBody');
-       final List<dynamic> data = jsonDecode(decodedBody);
+    try{
+      final accessToken = await getAccessToken();
+      final response = await http.get(
+        url,
+        headers: {
+          "Authorization": "Bearer $accessToken",
+          "Content-Type": "application/json",
+        },
+      );
+      if(response.statusCode == 200){
+        final decodedBody = utf8.decode(response.bodyBytes);
+        print('서버 응답 데이터 (디코딩 완료): $decodedBody');
+        final List<dynamic> data = jsonDecode(decodedBody);
 
-       if(data.isNotEmpty){
-         _addMarkers(data);
-       } else {
-         print("경기장 추천 데이터 없음.");
-       }
-     } else {
-       print("서버 응답 오류: ${response.statusCode}");
-     }
-   } catch (e) {
-     print("네트워크 오류: $e");
-   }
+        if(data.isNotEmpty){
+          _addMarkers(data);
+        } else {
+          print("경기장 추천 데이터 없음.");
+        }
+      } else {
+        print("서버 응답 오류: ${response.statusCode}");
+      }
+    } catch (e) {
+      print("네트워크 오류: $e");
+    }
   }
 
   void _addMarkers(List<dynamic> facilities) {
@@ -183,7 +183,11 @@ class _MatchingMapState extends State<MatchingMap> {
                     children: [
                       ElevatedButton(
                         onPressed: () {
-                          _showMatchCompleteDialog(); //매칭 완료 팝업
+                          // 팝업 없이 바로 채팅방으로 선택값 넘기기
+                          Navigator.pop(context, {
+                            'facilityName': _selectedFacilityName,
+                            'facilityUrl': _selectedFacilityUrl,
+                          });
                         },
                         child: Text("선택"),
                         style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
@@ -208,7 +212,7 @@ class _MatchingMapState extends State<MatchingMap> {
     );
   }
 
-  //매칭 완료 팝업
+  /*//매칭 완료 팝업
   void _showMatchCompleteDialog() {
     showDialog(
       context: context,
@@ -221,17 +225,21 @@ class _MatchingMapState extends State<MatchingMap> {
               Text("경기장이 성공적으로 선택되었습니다."),
               if(_selectedFacilityUrl != null)
                 TextButton(
-                    onPressed: (){
-                      launchUrl(Uri.parse(_selectedFacilityUrl!));
-                },
-                    child: Text("경기장 위치 보기"),
+                  onPressed: (){
+                    launchUrl(Uri.parse(_selectedFacilityUrl!));
+                  },
+                  child: Text("경기장 위치 보기"),
                 )
             ],
           ),
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.pop(context, _selectedFacilityName); // 이걸로 선택된 경기장 이름을 전달
+                Navigator.of(context, rootNavigator: true).pop({
+                  'facilityName': _selectedFacilityName,
+                  'facilityUrl': _selectedFacilityUrl,
+                });
+
               },
               child: Text("확인"),
             )
@@ -239,7 +247,7 @@ class _MatchingMapState extends State<MatchingMap> {
         );
       },
     );
-  }
+  }*/
 
   @override
   Widget build(BuildContext context) {

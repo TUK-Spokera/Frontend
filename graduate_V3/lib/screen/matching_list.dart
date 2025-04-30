@@ -16,7 +16,7 @@ class MatchingList extends StatelessWidget {
   });
 
   Future<void> _joinMatch(BuildContext context, int matchId) async {
-    final url = Uri.parse('http://appledolphin.xyz:8080/api/match/join');
+    final url = Uri.parse('$API_BASE_URL/api/match/join');
     final accessToken = await getAccessToken();
     final requestBody = {"username": username, "matchId": matchId};
 
@@ -46,7 +46,7 @@ class MatchingList extends StatelessWidget {
   }
 
   Future<void> _createMatch(BuildContext context) async {
-    final url = Uri.parse('http://appledolphin.xyz:8080/api/match/create');
+    final url = Uri.parse('$API_BASE_URL/api/match/create');
     final accessToken = await getAccessToken();
 
     try {
@@ -55,6 +55,7 @@ class MatchingList extends StatelessWidget {
         headers: {
           "Authorization":"Bearer $accessToken",
           "Content-Type": "application/json"
+
         },
         body: jsonEncode(requestData),
       );
@@ -66,7 +67,7 @@ class MatchingList extends StatelessWidget {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => ChatScreen(
-              matchId: matchId,
+            matchId: matchId,
             username: getGlobalUsername(),
           )),
         );
@@ -123,9 +124,32 @@ class MatchingList extends StatelessWidget {
         itemBuilder: (context, index) {
           final match = recommendedMatches[index];
           return ListTile(
-            title: Text("${match['sportType']} | ${match['startTime']} - ${match['matchId']}"),
-
-            subtitle: Text("추천 점수: ${match['recommendationScore']}"),
+            // 1) 점수에 따라 컬러 결정
+            title: Builder(builder: (context) {
+              final int score = match['recommendationScore'];
+              Color scoreColor;
+              if (score >= 80) {
+                scoreColor = Colors.red;
+              } else if (score >= 50) {
+                scoreColor = Colors.orange;
+              } else {
+                scoreColor = Colors.green;
+              }
+              // 2) RichText 로 “스포츠 | 추천 점수:” 와 점수 자체를 분리해서 스타일 적용
+              return RichText(
+                text: TextSpan(
+                  style: DefaultTextStyle.of(context).style, // 기본 텍스트 스타일
+                  children: [
+                    TextSpan(text: "${match['sportType']}  추천 점수: "),
+                    TextSpan(
+                      text: "$score",
+                      style: TextStyle(color: scoreColor, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              );
+            }),
+            subtitle: Text("${match['startTime']} • ID: ${match['matchId']}"),
             trailing: ElevatedButton(
               onPressed: () => _joinMatch(context, match['matchId']),
               child: Text("참여하기"),

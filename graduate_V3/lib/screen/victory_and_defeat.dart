@@ -57,35 +57,47 @@ class _ResultInputDialogState extends State<ResultInputDialog> {
     });
 
     final body = {
-      'matchId': 123,
-      'redTeamScores':
-      redControllers.map((c) => int.tryParse(c.text) ?? 0).toList(),
-      'blueTeamScores':
-      blueControllers.map((c) => int.tryParse(c.text) ?? 0).toList(),
+      'matchId': widget.match.id,
+      'redTeamScores': redControllers.map((c) => int.tryParse(c.text) ?? 0).toList(),
+      'blueTeamScores': blueControllers.map((c) => int.tryParse(c.text) ?? 0).toList(),
       'winnerTeam': selectedWinner,
     };
 
+    final jsonBody = jsonEncode(body);
+    print('▶️ 요청 바디: $jsonBody');
+
     try {
+      final accessToken = await getAccessToken();
       final response = await http.post(
         Uri.parse(
-            'https://appledolphin.xyz/api/match/result-input/matches/result'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(body),
+            'https://appledolphin.xyz/api/match/result-input'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization' : 'Bearer $accessToken'
+        },
+        body: jsonBody,
       );
+      print('🔹 statusCode = ${response.statusCode}');
+      print('🔹 body = "${response.body}"');
 
-      final responseBody = jsonDecode(utf8.decode(response.bodyBytes));
-      final isSuccess = responseBody['success'] ?? false;
-      final serverMessage =
-          responseBody['message'] ?? '알 수 없는 오류가 발생했습니다.';
+      final utf8Body = utf8.decode(response.bodyBytes);
+      final respMap = utf8Body.isNotEmpty
+          ? jsonDecode(utf8Body) as Map<String, dynamic>
+          : <String, dynamic>{};
+      final isSuccess = respMap['success'] == true;
+      final serverMessage = respMap['message'] ?? '알 수 없는 오류가 발생했습니다.';
 
       if (response.statusCode == 200 && isSuccess) {
         setState(() => _message = serverMessage);
         await Future.delayed(Duration(milliseconds: 500));
         Navigator.of(context).pop();
+      } else if (response.statusCode == 403) {
+        setState(() => _message = '권한이 없습니다. 로그인 상태를 확인해 주세요.');
       } else {
         setState(() => _message = serverMessage);
       }
     } catch (e) {
+      print('네트워크 오류: $e');
       setState(() => _message = '네트워크 오류: $e');
     } finally {
       setState(() => _isSubmitting = false);

@@ -7,7 +7,7 @@ import 'package:graduate/screen/matching_start.dart';
 import 'package:graduate/screen/chat_list.dart';
 import 'package:graduate/screen/mypage.dart';
 import 'package:graduate/camera/team_search.dart';
-import 'package:graduate/camera/gift_search.dart';
+import 'package:graduate/camera/team_search_map.dart';
 import 'package:graduate/screen/victory_and_defeat.dart';
 import 'package:graduate/utils/global.dart';
 import 'package:graduate/screen/rank_screen.dart';

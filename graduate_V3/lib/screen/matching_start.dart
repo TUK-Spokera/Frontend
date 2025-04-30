@@ -9,8 +9,9 @@ import 'dart:convert';
 import 'package:graduate/screen/matching_list.dart';
 import 'package:graduate/utils/global.dart';
 import 'package:graduate/screen/main_screen.dart';
+import 'package:geolocator/geolocator.dart';
 
-import '../camera/gift_search.dart';
+import '../camera/team_search_map.dart';
 import '../camera/team_search.dart';
 
 class Matchingstart extends StatefulWidget {
@@ -47,6 +48,16 @@ class _MatchingScreenState extends State<Matchingstart> {
 
 
   Future<void> sendMatchRequest() async {
+    Position pos;
+    try {
+      pos = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+    } catch (e) {
+      _showErrorDialog("위치 정보를 가져올 수 없습니다: $e");
+      return;
+    }
+
     const String apiUrl = "$API_BASE_URL/api/match/recommend";
 
     // ✅ Access Token 가져오기
@@ -103,11 +114,13 @@ class _MatchingScreenState extends State<Matchingstart> {
     }[selectedTeamConfig]!;
 
     Map<String, dynamic> requestData = {
-      //"userId" : getGlobalUserId(),
+      "userId" : getGlobalUserId(),
       "sportType": selectedSport,
       "startTime": formattedStartTime,
       "endTime": formattedEndTime,
-      "matchType": matchType
+      "matchType": matchType,
+      "latitude": pos.latitude,
+      "longitude": pos.longitude
     };
 
     try {
